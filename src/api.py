@@ -5,6 +5,7 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, field_validator
 
 try:
@@ -58,6 +59,11 @@ class SelectRequest(BaseModel):
         if v not in valid:
             raise ValueError(f"policy must be one of {sorted(valid)}")
         return v
+
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return HTMLResponse(content="<html><head><meta http-equiv='refresh' content='0; URL=/docs'></head></html>", status_code=200)
 
 
 @app.get("/health")
