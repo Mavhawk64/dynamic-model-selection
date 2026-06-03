@@ -1,0 +1,19 @@
+-c requirements.txt  # Constrain to production versions
+
+# Testing
+pytest
+pytest-asyncio
+pytest-cov
+pytest-httpx
+pytest-mock
+
+# Code Quality
+pylint
+pyright
+ruff
+
+# Development Tools
+ipython
+pipdeptree
+pip-audit
+pip-Tools

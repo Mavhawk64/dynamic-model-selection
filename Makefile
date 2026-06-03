@@ -1,3 +1,21 @@
+VENV ?= .venv
+
+secrets:
+	@echo "Generating .env file with secrets..."
+	@echo "ARTIFICIAL_ANALYSIS_API_KEY='$(ARTIFICIAL_ANALYSIS_API_KEY)'" > .env
+	@echo "PYTHONPATH='$(PYTHONPATH):$(PWD)/src'" >> .env
+	@echo "Quoting all .env values..."
+	@sed -i "s/^\([^=]*\)=\(.*\)/\1='\2'/" .env
+
+start:
+	@echo "Starting development environment ($(VENV))..."
+	@test -d $(VENV) || python -m venv $(VENV)
+	@echo "Fetching secrets..."
+	@bash -c "set -a; source .env; set +a && source ./$(VENV)/bin/activate && python src/text_model_selector.py"
+
+test:
+	python -m pytest -x
+
 # Compile both requirements files (after editing .in files)
 deps-compile:
 	@echo "Compiling requirements.txt from requirements.in..."
