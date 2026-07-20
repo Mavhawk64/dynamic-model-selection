@@ -2,38 +2,45 @@ import re
 from dataclasses import dataclass
 from functools import lru_cache
 
+import spacy
 import tiktoken
 
-ANALYSIS_PATTERNS = [
-    r"\banaly[sz]e\b",
-    r"\bcompare\b",
-    r"\bevaluate\b",
-    r"\bassess\b",
-    r"\btrade[- ]?offs?\b",
-    r"\bpros and cons\b",
-    r"\badvantages?\b",
-    r"\bdisadvantages?\b",
-    r"\brecommend\b",
-    r"\bbest approach\b",
-    r"\bstrategy\b",
-    r"\barchitecture\b",
-    r"\bdesign\b",
-    r"\bdiagnose\b",
-    r"\bdebug\b",
-    r"\broot cause\b",
-    r"\bwhy\b",
-    r"\bexplain\b",
-    r"\bderive\b",
-    r"\bprove\b",
-    r"\boptimi[sz]e\b",
-    r"\bfix\b",
-]
+ANALYSIS_INTENT_LEMMAS: frozenset[str] = frozenset({
+    "analyze", "analysis",
+    "evaluate", "evaluation",
+    "compare", "comparison",
+    "assess", "assessment",
+    "recommend", "recommendation",
+    "optimize", "optimization",
+    "debug", "diagnose", "diagnosis",
+    "explain",
+    "derive",
+    "prove",
+    "fix",
+    "design",
+    "architecture",
+    "strategy",
+    "tradeoff",
+    "advantage", "disadvantage",
+})
 
+ANALYSIS_PHRASE_PATTERNS: list[str] = [
+    r"\broot cause\b",
+    r"\bbest approach\b",
+    r"\bpros and cons\b",
+    r"\btrade[- ]offs?\b",
+    r"\bwhy\b",
+]
 
 QUESTION_RE = re.compile(r"\?")
-ANALYSIS_REGEXES = [
-    re.compile(pattern, re.IGNORECASE | re.MULTILINE) for pattern in ANALYSIS_PATTERNS
+ANALYSIS_PHRASE_REGEXES = [
+    re.compile(pattern, re.IGNORECASE | re.MULTILINE) for pattern in ANALYSIS_PHRASE_PATTERNS
 ]
+
+
+@lru_cache(maxsize=1)
+def get_nlp() -> spacy.language.Language:
+    return spacy.load("en_core_web_sm", disable=["parser", "ner"])
 
 
 @dataclass(frozen=True)
@@ -76,7 +83,11 @@ def count_questions(text: str) -> int:
 
 
 def analysis_score(text: str) -> int:
-    return sum(1 for regex in ANALYSIS_REGEXES if regex.search(text))
+    nlp = get_nlp()
+    doc = nlp(text)
+    lemma_hits = sum(1 for token in doc if token.lemma_.lower() in ANALYSIS_INTENT_LEMMAS)
+    phrase_hits = sum(1 for rx in ANALYSIS_PHRASE_REGEXES if rx.search(text))
+    return lemma_hits + phrase_hits
 
 
 def asks_for_analysis(text: str) -> bool:

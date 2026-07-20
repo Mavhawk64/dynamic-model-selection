@@ -1,5 +1,7 @@
+import asyncio
 import dataclasses
 import json
+import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -9,12 +11,14 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, field_validator
 
 try:
-    from src.artificial_analysis.catalog import ModelCandidate, get_models
+    from src.artificial_analysis.catalog import ModelCandidate, get_models, normalize_models
+    from src.artificial_analysis.client import load_or_fetch_llm_models
     from src.artificial_analysis.resolver import resolve
     from src.routing_types import SelectionPolicy
     from src.text_model_selector import select_text_model
 except ImportError:
-    from artificial_analysis.catalog import ModelCandidate, get_models
+    from artificial_analysis.catalog import ModelCandidate, get_models, normalize_models
+    from artificial_analysis.client import load_or_fetch_llm_models
     from artificial_analysis.resolver import resolve
     from routing_types import SelectionPolicy
     from text_model_selector import select_text_model
@@ -22,12 +26,34 @@ except ImportError:
 
 _candidates: list[ModelCandidate] = []
 
+MODEL_REFRESH_INTERVAL_SECONDS = 60 * 60 * 24  # 24 hours
+
+logger = logging.getLogger(__name__)
+
+
+async def _refresh_models_loop() -> None:
+    global _candidates
+    while True:
+        await asyncio.sleep(MODEL_REFRESH_INTERVAL_SECONDS)
+        try:
+            data = await asyncio.to_thread(load_or_fetch_llm_models, force_refresh=True)
+            _candidates = normalize_models(data)
+            logger.info("Model catalog refreshed: %d models loaded.", len(_candidates))
+        except Exception as exc:
+            logger.warning("Model catalog refresh failed, keeping existing models: %s", exc)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _candidates
-    _candidates = get_models()
+    try:
+        data = await asyncio.to_thread(load_or_fetch_llm_models, force_refresh=True)
+        _candidates = normalize_models(data)
+    except Exception:
+        _candidates = get_models()
+    task = asyncio.create_task(_refresh_models_loop())
     yield
+    task.cancel()
 
 
 app = FastAPI(

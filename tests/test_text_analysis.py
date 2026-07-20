@@ -41,6 +41,7 @@ def test_count_openai_tokens_returns_positive_count() -> None:
     "text",
     [
         "Can you analyze this?",
+        "Can you do an in-depth analysis of this?",
         "Compare Rust and Go.",
         "Evaluate the tradeoffs.",
         "What is the root cause?",
