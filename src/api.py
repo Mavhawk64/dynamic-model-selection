@@ -25,6 +25,7 @@ except ImportError:
 
 
 _candidates: list[ModelCandidate] = []
+_models_source: str = "unloaded"
 
 MODEL_REFRESH_INTERVAL_SECONDS = 60 * 60 * 24  # 24 hours
 
@@ -46,13 +47,16 @@ async def _refresh_models_loop() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _candidates
+    global _models_source
     try:
         data = await asyncio.to_thread(load_or_fetch_llm_models, force_refresh=True)
         _candidates = normalize_models(data)
-        logger.info("Loaded %d models from live AA API.", len(_candidates))
+        _models_source = "live_api"
+        print(f"[startup] Loaded {len(_candidates)} models from live AA API.", flush=True)
     except Exception as exc:
-        logger.warning("Live AA fetch failed at startup, falling back to cache: %s", exc)
+        print(f"[startup] Live AA fetch failed, falling back to cache: {exc}", flush=True)
         _candidates = get_models()
+        _models_source = "cache"
     task = asyncio.create_task(_refresh_models_loop())
     yield
     task.cancel()
@@ -96,7 +100,7 @@ async def root():
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "models_loaded": str(len(_candidates))}
+    return {"status": "ok", "models_loaded": str(len(_candidates)), "models_source": _models_source}
 
 
 @app.post("/select")
