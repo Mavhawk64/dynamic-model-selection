@@ -1,9 +1,12 @@
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
 
 import requests
+
+logger = logging.getLogger(__name__)
 
 AA_MODELS_URL = "https://artificialanalysis.ai/api/v2/data/llms/models"
 CLIENT_PATH = Path(__file__).parent
@@ -36,8 +39,11 @@ def load_or_fetch_llm_models(
 
     data = fetch_llm_models(api_key)
 
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-    cache_path.write_text(json.dumps(data, indent=2, sort_keys=True))
+    try:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(json.dumps(data, indent=2, sort_keys=True))
+    except OSError as exc:
+        logger.warning("Could not write model cache to %s: %s", cache_path, exc)
 
     return data
 

@@ -49,7 +49,9 @@ async def lifespan(app: FastAPI):
     try:
         data = await asyncio.to_thread(load_or_fetch_llm_models, force_refresh=True)
         _candidates = normalize_models(data)
-    except Exception:
+        logger.info("Loaded %d models from live AA API.", len(_candidates))
+    except Exception as exc:
+        logger.warning("Live AA fetch failed at startup, falling back to cache: %s", exc)
         _candidates = get_models()
     task = asyncio.create_task(_refresh_models_loop())
     yield
